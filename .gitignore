@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+node_modules/
+out/
+sb/
+*.tmp.mp4
+*.mp4
+*.mov
+*.wav
+mix_raw.wav
+.DS_Store
+Thumbs.db
