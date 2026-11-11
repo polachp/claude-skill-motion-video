@@ -35,7 +35,7 @@ with sync_playwright() as p:
     pg.on('pageerror', lambda e: print('PAGE ERROR', e)); pg.goto(page.as_uri()); pg.wait_for_timeout(800)
     TW = 540 if F['w'] <= F['h'] else 640; TH = round(TW * F['h'] / F['w'])
     for t in times:
-        pg.evaluate(f'seek({t})'); tmp = out / '_tmp.jpg'
+        pg.evaluate(f'seek({t})'); pg.evaluate("Promise.all(window.__pending||[]).then(()=>{window.__pending=[]})"); tmp = out / '_tmp.jpg'
         pg.screenshot(path=str(tmp), type='jpeg', quality=92)
         Image.open(tmp).resize((TW, TH)).save(img / f'f_{t}.jpg', quality=86)
     b.close()

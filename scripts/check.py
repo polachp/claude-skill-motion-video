@@ -3,7 +3,8 @@
 Použití:  python check.py video.html [--step 0.5] [--dead 3] [--safe 180,60,420,60]
 Hlídá:
   - text mimo bezpečnou zónu (okraje top,right,bottom,left v px návrhového rozlišení; výchozí podle formátu:
-    9:16 = 200,60,380,60 kvůli UI Reels/Shorts (orientační, upravit dle platformy), 16:9 = 54,96,54,96, 1:1 = 54,54,54,54)
+    9:16 = 200,60,380,60 kvůli UI Reels/Shorts (orientační, upravit dle platformy), 4:5 = 80,60,140,60,
+    16:9 = 54,96,54,96, 1:1 = 54,54,54,54)
   - text přetékající přes kontejner nebo mimo obraz
   - nízký kontrast textu proti pozadí (WCAG poměr < 3 pro velký text, < 4.5 pro malý)
   - hluchá místa: úseky delší než --dead s, kde se obraz skoro nemění
@@ -54,7 +55,7 @@ with sync_playwright() as p:
         safe = [int(v) for v in a.safe.split(',')]
     else:
         r = W / H
-        safe = [200, 60, 380, 60] if r < 0.8 else ([54, 96, 54, 96] if r > 1.2 else [54, 54, 54, 54])
+        safe = [200, 60, 380, 60] if r < 0.7 else ([80, 60, 140, 60] if r < 0.9 else ([54, 96, 54, 96] if r > 1.2 else [54, 54, 54, 54]))
     pg = b.new_page(viewport={'width': W, 'height': H})
     pg.goto(pathlib.Path(a.html).resolve().as_uri()); pg.wait_for_timeout(800)
     END = max(v[1] for v in T.values())
@@ -62,7 +63,7 @@ with sync_playwright() as p:
     found, seen, prev, still = [], set(), None, 0.0
     t = 0.0
     while t <= END:
-        pg.evaluate(f'seek({t})')
+        pg.evaluate(f'seek({t})'); pg.evaluate("Promise.all(window.__pending||[]).then(()=>{window.__pending=[]})")
         img = Image.open(io.BytesIO(pg.screenshot(type='png'))).convert('RGB')
         for it in pg.evaluate(JS, safe):
             box = (max(0, int(it['x'])), max(0, int(it['y'])), min(W, int(it['x'] + it['w'])), min(H, int(it['y'] + it['h'])))

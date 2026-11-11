@@ -19,7 +19,7 @@ with sync_playwright() as p:
     pg.on('pageerror', lambda e: print('PAGE ERROR', e)); pg.goto(html.as_uri()); pg.wait_for_timeout(800)
     files = []
     for t in ts:
-        pg.evaluate(f'seek({t})'); f = out / f'k_{t}.jpg'
+        pg.evaluate(f'seek({t})'); pg.evaluate("Promise.all(window.__pending||[]).then(()=>{window.__pending=[]})"); f = out / f'k_{t}.jpg'
         pg.screenshot(path=str(f), type='jpeg', quality=90); files.append(f)
     b.close()
 tw, th = (540, round(540 * F['h'] / F['w'])) if F['h'] <= F['w'] else (round(960 * F['w'] / F['h']), 960)

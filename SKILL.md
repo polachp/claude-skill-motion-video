@@ -7,6 +7,7 @@ description: Tvorba videí s motion grafikou podle scénáře – od krátkých 
 
 Obecný postup pro videa s motion grafikou (animovaný text, grafy, screenshoty, ikony, mapy) renderovaná z HTML.
 Značka, tón, barvy, znělka a hudba konkrétního projektu jsou v **profilu projektu `VIDEO.md`**, ne tady.
+Skripty a šablony: repo `C:\Mydrive\Claude Projects\motion-video\` (`scripts/`, `templates/`).
 
 ## 0. Profil projektu
 
@@ -24,13 +25,14 @@ Pevný blok na začátku scénáře. Časy scén se odvozují z něj.
 |---|---|
 | Téma | MultiModel v Meteoblue |
 | Předvolba | reel / video / čtverec |
-| Formát a návrhové rozlišení | 9:16 1080×1920 / 16:9 1920×1080 / 1:1 1080×1080 |
+| Formát a návrhové rozlišení | 9:16 1080×1920 / 16:9 1920×1080 / 4:5 1080×1350 / 1:1 1080×1080 |
 | Finální render | 1080p, nebo 4K (`--scale 2` u 16:9) |
 | Délka | 60–75 s / 8 min / … |
-| Voiceover | ne / vlastní nahrávka |
+| Voiceover | ne / vlastní nahrávka (synchronizace na slova) |
 | Titulky | vypálené v obraze / SRT / obojí |
 | Znělka, hudba | podle profilu (soubor + licence) |
 | Zvukové efekty | ano / ne |
+| Živé nahrávky webu | ne / ano (které weby a kroky) |
 
 ### Předvolby formátu
 
@@ -38,6 +40,7 @@ Pevný blok na začátku scénáře. Časy scén se odvozují z něj.
 |---|---|---|---|
 | **reel / short** | 9:16, 1080×1920 | do 3 min (Reels, Shorts); FB Reels ověřit (uvádí se 90 s) | jedna myšlenka, velké titulky v obraze, obsah v bezpečné zóně (UI aplikace nahoře a dole), rychlé tempo |
 | **video** | 16:9, návrh 1920×1080, render až 4K | libovolná | kapitoly (scénář i storyboard po kapitolách, časové značky do popisu YouTube: první 0:00, min. 3 kapitoly), spíš voiceover, víc prostoru na detail, klidnější tempo |
+| **feed 4:5** | 4:5, 1080×1350 | do ~1–2 min | příspěvek do feedu Instagramu (a LinkedIn), zabere víc výšky než čtverec |
 | **čtverec** | 1:1, 1080×1080 | do ~1 min | příspěvek do feedu (FB, IG), titulky uprostřed |
 
 Reel je jen předvolba: když Petr řekne „reel“, platí délka, formát i tempo reelu.
@@ -97,10 +100,19 @@ Výstupem je vždy dvojice **scénář + storyboard**, v souladu po každé změ
   (bez znělky místo souboru `-`): hudba pod znělkou ztlumená, pak náběh, na konci fade-out, dvouprůchodový
   loudnorm na −14 LUFS a true peak −1,5 dBTP; obraz se nepřekódovává.
 - Přeskočit tiché intro skladby (RMS po sekundách), aby po znělce nebyl propad.
-- Jemné zvukové efekty podle obsahu (šustnutí u přechodu, tiché cvaknutí u zvýraznění), generované programově
-  (ffmpeg/Python: šum, oscilátor, filtr, obálka), časované podle `T`, výrazně tišší než hudba, jen u důležitých změn.
-- Voiceover: skutečná nahrávka je hlavní hodiny, časy scén se podle ní upraví, nic se nenatahuje; hudbu pod hlasem
-  ztlumit. Titulky volitelně i jako SRT (`{start, end, text}`).
+- **Zvukové efekty** podle obsahu, jen u důležitých změn a výrazně tišší než hudba:
+  `scripts/sfx.py cues.json sfx.wav --dur <délka>` generuje v kódu whoosh (přechod scény), click (rámeček),
+  pop (objevení karty), tick (popisek), swell (zvýraznění), riser (náběh), thud (verdikt). Časy (`cues.json`)
+  brát z timeline `T` a ze sloupce „zvuk“ ve storyboardu; do mixu `mix_audio.py … --sfx sfx.wav`.
+  Volitelně v Claude Code nástroj earshot (MCP; banka 252 zvuků v kódu, poslech a kontrola synchronizace),
+  pokud ho Petr nainstaluje (cca 1,1 GB modelů).
+- **Voiceover se synchronizací na slova:** `scripts/align_voice.py voiceover.wav projekt/ [--text text.txt]`
+  (Whisper, čeština) vytvoří `vo.json`, `vo.js` a `vo.srt`. Ve `video.html` načíst `<script src="vo.js">`
+  a časovat grafiku na slova: `voAt('předpověď')` vrátí čas slova; titulky slovo po slově `wordCaption(el, t)`
+  (hodí se pro 9:16, 4:5 a 1:1). Nahrávka je hlavní hodiny: délku a časy scén odvodit z ní, nic nenatahovat.
+  Časy z Whisperu jsou přesné řádově na desetiny sekundy, ověřit poslechem. `--text` porovná skutečný text
+  se slyšeným (překlepy, špatně vyslovená slova).
+- Do mixu: `mix_audio.py … --voice voiceover.wav [--voice-start s]`; hudba se pod hlasem sama ztlumí (ducking).
 - Hudba ze stock knihoven může vyvolat Content ID; řešit sporem typu Dispute s licencí, ne „Escalate to appeal“.
 
 ## 6. Technika
@@ -109,13 +121,20 @@ Výstupem je vždy dvojice **scénář + storyboard**, v souladu po každé změ
    scény jako `<div class="scene">`, timeline `T={s1:[0,3.5],…}`, deterministická `seek(t)` (žádné CSS animace,
    časovače ani `Math.random()`; seedovaná náhoda), na konci `window.seek=seek; window.T=T;`.
    Písmo lokálně přes `npm i @fontsource/<písmo>` (přehrávač ho přepne na Google Fonts). Logo vkládat inline SVG.
-2. **Screenshoty webů** přes Claude in Chrome: `document.documentElement.style.transform='scale(2)'`
+2. **Živé nahrávky webu** (místo statických screenshotů, když je důležitý průchod webem):
+   `scripts/record_web.py kroky.json out/ [--width 1280 --height 800 --scale 2]`: Playwright projde web podle kroků
+   (`click`, `type`, `hover`, `spot` = rámeček se ztmavením okolí, `zoom`/`unzoom`, `scroll`, `wait`, `mark`)
+   s plynulým kurzorem a vlnkou při kliknutí; výstup `web.mp4` + `marks.json` s časy kroků.
+   **Spouštět u Petra (Claude Code)**, cloudový sandbox na běžné weby nedosáhne. Cookie lišty odmítat.
+   Ve `video.html` vložit `<video src="web.mp4" muted preload="auto">` a posouvat `vseek(video, čas)` (šablona);
+   render, kontrola i storyboard počkají na dokončení posunu.
+3. **Screenshoty webů** přes Claude in Chrome: `document.documentElement.style.transform='scale(2)'`
    (origin `0 0`), kurzor odsunout, `save_to_disk`; pak zoom a rámeček ve videu.
-3. **Render** `scripts/render.py projekt/video.html out/ [--scale S] [--only s3 s6] [--workers 4]`:
+4. **Render** `scripts/render.py projekt/video.html out/ [--scale S] [--only s3 s6] [--workers 4]`:
    MP4 na scénu paralelně, CRF 18, concat `-c copy`. Náhled `--scale 0.5`, 4K z 1920×1080 `--scale 2`.
-4. **Zvuk** `scripts/mix_audio.py` (viz výše).
+5. **Zvuk** `scripts/mix_audio.py` (viz výše).
 
-Potřeba: Python s `playwright` a `pillow`, Chrome/Chromium, ffmpeg, Node (fonty).
+Potřeba: Python s `playwright`, `pillow`, `numpy`, Chrome/Chromium, ffmpeg, Node (fonty); pro voiceover `faster-whisper`.
 
 ## 7. Publikace (po schválení videa a souhlasu)
 
@@ -123,5 +142,6 @@ Potřeba: Python s `playwright` a `pillow`, Chrome/Chromium, ffmpeg, Node (fonty
   FB nahrát samostatně (ne sdílet z IG), kratší text; YouTube název do ~60 znaků s klíčovými slovy na začátku,
   popis (co, kde, hlavní pravidlo, odkaz na související video, hudba), u videa časové značky kapitol.
   Hashtagy jen ze sady v profilu. Uložit do scénáře (sekce „Texty k publikaci“).
+- Titulky k videu na YouTube: nahrát `vo.srt` (pokud je voiceover).
 - Náhledové obrázky: pro reel 1080×1920 + 1280×720, pro video 1280×720 (YouTube); velký text, hlavní motiv,
   styl podle profilu. U Shorts YouTube nemusí vlastní náhled povolit.

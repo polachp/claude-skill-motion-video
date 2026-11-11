@@ -46,7 +46,7 @@ def render_scene(args):
                                '-crf', str(crf), '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-r', str(fps), str(tmp)],
                               stdin=subprocess.PIPE)
         for i in range(n):
-            pg.evaluate(f'seek({a + i / fps})')
+            pg.evaluate(f'seek({a + i / fps})'); pg.evaluate("Promise.all(window.__pending||[]).then(()=>{window.__pending=[]})")
             ff.stdin.write(pg.screenshot(type='jpeg', quality=92))
         ff.stdin.close(); ok = ff.wait() == 0; b.close()
     if ok:
