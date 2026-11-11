@@ -1,19 +1,21 @@
-"""Storyboard reelu: snímky ze sekcí + HTML stránka k publikování jako artefakt.
+"""Storyboard: frames per section + an HTML page to publish as an artifact.
 
-Použití:  python storyboard.py reel.html storyboard.json out_dir/
-Výstup:   out_dir/index.html a out_dir/img/f_<t>.jpg (540x960) -> publikovat publish_files (mode replace,
-          stejný slug artefaktu, aby odkaz zůstal stejný).
+Usage:   python storyboard.py video.html storyboard.json out_dir/
+Output:  out_dir/index.html and out_dir/img/f_<t>.jpg -> publish with publish_files (mode replace,
+         same artifact slug, so the link stays the same).
 
 storyboard.json:
 {
   "title": "Reel 1: MultiModel – storyboard",
-  "subtitle": "9:16, 74 s, titulky v 1. os. mn. č.",
-  "status": "Storyboard ke schválení, video zatím negenerovat.",
+  "subtitle": "9:16, 74 s, burned-in captions",
+  "status": "Storyboard for approval, do not render the video yet.",
+  "labels": {"learn": "Co se učíme", "motion": "Pohyb a přechod", "sound": "Zvuk", ...},   # optional UI language
   "sections": [
-    {"name": "1. Úvod", "time": "0–3,5 s",
-     "items": ["Logo se skládá", "Titulek: „Co je MultiModel?“"],
-     "changed": [1],                      # indexy položek se štítkem UPRAVENO (volitelné)
-     "frames": [[0.7, "logo"], [2.8, "titulek"]]}
+    {"name": "1. Intro", "time": "0–3.5 s",
+     "learn": "...", "motion": "...", "sound": "...",
+     "items": ["Logo assembles", "Title: ..."],
+     "changed": [1],                      # indexes of items marked CHANGED (optional)
+     "frames": [[0.7, "logo"], [2.8, "title"]]}
   ]
 }
 """
@@ -42,16 +44,20 @@ with sync_playwright() as p:
 (out / '_tmp.jpg').unlink(missing_ok=True)
 
 e = html.escape
+L = {'learn': 'What we learn', 'motion': 'Motion and transition', 'sound': 'Sound', 'changed': 'CHANGED',
+     'player': 'Preview player', 'player_hint': 'Animation right in the browser, no render. Use the timeline to jump in time.',
+     'open_player': 'Open the player on its own', 'zoom_hint': 'Click a frame to enlarge it.'}
+L.update(cfg.get('labels', {}))
 secs = []
 for s in cfg['sections']:
     ch = set(s.get('changed', []))
-    items = ''.join(f"<li>{e(it)}{' <span class=new>UPRAVENO</span>' if i in ch else ''}</li>" for i, it in enumerate(s['items']))
-    extra = ''.join(f"<div class=x><b>{lab}:</b> {e(s[k])}</div>" for k, lab in (('learn', 'Co se učíme'), ('motion', 'Pohyb a přechod'), ('sound', 'Zvuk')) if s.get(k))
+    items = ''.join(f"<li>{e(it)}{' <span class=new>' + e(L['changed']) + '</span>' if i in ch else ''}</li>" for i, it in enumerate(s['items']))
+    extra = ''.join(f"<div class=x><b>{lab}:</b> {e(s[k])}</div>" for k, lab in ((k, e(L[k])) for k in ('learn', 'motion', 'sound')) if s.get(k))
     figs = ''.join(f"<figure><img src='img/f_{float(t)}.jpg'><figcaption>{e(c)}</figcaption></figure>" for t, c in s['frames'])
     secs.append(f"<section><h2>{e(s['name'])}</h2><div class=t>{e(s['time'])}</div>{extra}<ul>{items}</ul><div class=frames>{figs}</div></section>")
-player = ("<div class=player><h2>Přehrávač náhledu</h2><div class=t>Animace přímo v prohlížeči, bez renderu. Posuvníkem můžeš skákat v čase.</div>"
-          "<iframe src='player.html' title='Náhled reelu'></iframe><div class=t><a href='player.html' style='color:#FFD24A'>Otevřít přehrávač samostatně</a></div></div>") if (out / 'player.html').exists() else ''
-doc = f"""<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+player = (f"<div class=player><h2>{e(L['player'])}</h2><div class=t>{e(L['player_hint'])}</div>"
+          f"<iframe src='player.html' title='{e(L['player'])}'></iframe><div class=t><a href='player.html' style='color:#FFD24A'>{e(L['open_player'])}</a></div></div>") if (out / 'player.html').exists() else ''
+doc = f"""<!DOCTYPE html><html lang="{e(cfg.get('lang', 'en'))}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(cfg['title'])}</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap">
 <style>
@@ -71,11 +77,11 @@ figcaption{{font-size:13px;opacity:.75;margin-top:6px;max-width:240px}}
 #lb{{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;cursor:zoom-out}}
 #lb img{{max-height:94vh;max-width:94vw;border-radius:14px}}
 </style></head><body>
-<header><h1>{e(cfg['title'])}</h1><p>{e(cfg.get('subtitle', ''))} Klepnutím na snímek ho zvětšíš.</p><div class=meta>{e(cfg.get('status', ''))}</div></header>
+<header><h1>{e(cfg['title'])}</h1><p>{e(cfg.get('subtitle', ''))} {e(L['zoom_hint'])}</p><div class=meta>{e(cfg.get('status', ''))}</div></header>
 {player}{''.join(secs)}
 <div id=lb><img></div>
 <script>const lb=document.getElementById('lb'),li=lb.querySelector('img');
 document.querySelectorAll('figure img').forEach(i=>i.addEventListener('click',()=>{{li.src=i.src;lb.style.display='flex'}}));
 lb.addEventListener('click',()=>lb.style.display='none');</script></body></html>"""
 (out / 'index.html').write_text(doc, encoding='utf-8')
-print('->', out / 'index.html', len(times), 'snímků')
+print('->', out / 'index.html', len(times), 'frames')

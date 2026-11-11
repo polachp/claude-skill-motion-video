@@ -1,17 +1,17 @@
-"""Zvuk videa: hudba + znělka + voiceover + zvukové efekty, normalizace, připojení k videu.
+"""Video audio: music + jingle + voiceover + sound effects, loudness normalization, mux into the video.
 
-Použití:
-  python mix_audio.py video_only.mp4 hudba.mp3 znelka.mp3 vystup.mp4 [volby]
-  (bez znělky místo souboru znělky napiš -; bez hudby místo hudby napiš -)
-Volby:
-  --music-start S    od kolikáté sekundy skladby začít (přeskočit tiché intro), výchozí 4
-  --jingle-len S     délka znělky (dozní poslední 1,2 s), výchozí 4.6
-  --voice F          voiceover (WAV/MP3); hudba se pod hlasem automaticky ztlumí (sidechain ducking)
-  --voice-start S    kdy voiceover začíná ve videu, výchozí = konec znělky
-  --sfx F            stopa zvukových efektů ze sfx.py (WAV, od času 0)
-  --target L         cílová hlasitost v LUFS, výchozí -14 (sociální sítě; YouTube normalizuje kolem -14)
-Postup: hudba pod znělkou na 35 %, pak náběh; na konci 2,5 s fade-out; dvouprůchodový loudnorm, true peak -1,5 dBTP.
-Obraz se nepřekódovává (-c:v copy).
+Usage:
+  python mix_audio.py video_only.mp4 music.mp3 jingle.mp3 output.mp4 [options]
+  (no jingle: use - instead of the jingle file; no music: use - instead of the music file)
+Options:
+  --music-start S    start the track at second S (skip a quiet intro), default 4
+  --jingle-len S     jingle length (the last 1.2 s fade out), default 4.6
+  --voice F          voiceover (WAV/MP3); music ducks automatically under the voice (sidechain)
+  --voice-start S    when the voiceover starts in the video, default = end of the jingle
+  --sfx F            sound effects track from sfx.py (WAV, starts at 0)
+  --target L         target loudness in LUFS, default -14 (social media; YouTube normalizes around -14)
+Process: music at 35 % under the jingle, then ramps up; 2.5 s fade-out at the end; two-pass loudnorm, true peak -1.5 dBTP.
+Video is not re-encoded (-c:v copy).
 """
 import json, subprocess, argparse
 

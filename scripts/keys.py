@@ -1,7 +1,7 @@
-"""Klíčové snímky z HTML timeline (kontrola stylu, storyboard).
+"""Key frames from an HTML timeline (style check, storyboard).
 
-Použití:  python keys.py reel.html out_dir 0.7 8.5 31.5 ...
-Uloží out_dir/k_<t>.jpg (1080x1920) a out_dir/contact.jpg (náhledy vedle sebe).
+Usage:  python keys.py video.html out_dir 0.7 8.5 31.5 ...
+Saves out_dir/k_<t>.jpg (design resolution) and out_dir/contact.jpg (thumbnails side by side).
 """
 import sys, os, pathlib
 from playwright.sync_api import sync_playwright

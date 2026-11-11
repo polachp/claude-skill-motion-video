@@ -1,19 +1,19 @@
-"""Voiceover: časy slov z nahrávky (Whisper) pro synchronizaci grafiky a titulků.
+"""Voiceover: word timings from a recording (Whisper) to sync graphics and captions.
 
-Použití:
-  python align_voice.py voiceover.wav projekt/ [--lang cs] [--model small] [--text scenar_voiceover.txt]
-Výstup do projekt/:
+Usage:
+  python align_voice.py voiceover.wav project/ [--lang cs] [--model small] [--text voiceover_script.txt]
+Output in project/:
   vo.json   {"duration": s, "words": [{"w","start","end"}], "segments": [{"text","start","end"}]}
-  vo.js     window.VO = {...}  (načíst ve video.html: <script src="vo.js"></script>)
-  vo.srt    titulky po větách (YouTube, přístupnost)
-Ve video.html pak:
-  voAt('předpověď')        čas prvního výskytu slova (s), voAt('modely', 2) druhý výskyt
-  voWordsAt(t, 4)          slova kolem času t pro titulky slovo po slově
-Nahrávka je hlavní hodiny: délku videa a časy scén odvodit z vo.json, nic nenatahovat.
---text: volitelně skutečný text voiceoveru; slouží jen ke kontrole (vypíše slova, která Whisper slyšel jinak).
+  vo.js     window.VO = {...}  (load in video.html: <script src="vo.js"></script>)
+  vo.srt    subtitles per sentence (YouTube, accessibility)
+In video.html:
+  voAt('word')             time of the first occurrence of a word (s); voAt('word', 2) = second occurrence
+  voWordsAt(t, 4)          words around time t, for word-by-word captions
+The recording is the master clock: take video length and scene times from vo.json, never stretch anything.
+--text: optional real voiceover text; only used as a check (prints words Whisper heard differently).
 
-Potřeba: pip install faster-whisper  (nebo openai-whisper). Model se stáhne při prvním spuštění.
-Whisper umí češtinu; přesnost časů je řádově desetiny sekundy, ověřit poslechem.
+Requires: pip install faster-whisper  (or openai-whisper). The model downloads on first run.
+Whisper supports Czech; timing accuracy is about a tenth of a second, check by listening.
 """
 import sys, json, argparse, pathlib, subprocess, re, difflib
 
@@ -30,7 +30,7 @@ try:
     from faster_whisper import WhisperModel
     import numpy as np
     pcm = subprocess.run(['ffmpeg', '-v', 'error', '-i', a.audio, '-f', 's16le', '-ac', '1', '-ar', '16000', '-'], capture_output=True, check=True).stdout
-    audio = np.frombuffer(pcm, np.int16).astype(np.float32) / 32768.0   # dekódování přes ffmpeg (bez PyAV)
+    audio = np.frombuffer(pcm, np.int16).astype(np.float32) / 32768.0   # decode with ffmpeg (no PyAV)
     m = WhisperModel(a.model, device='cpu', compute_type='int8')
     it, _ = m.transcribe(audio, language=a.lang, word_timestamps=True, vad_filter=True)
     for s in it:
@@ -50,7 +50,7 @@ data = {'duration': round(dur, 3), 'words': words, 'segments': segs}
 (out / 'vo.json').write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding='utf-8')
 js = ('window.VO=' + json.dumps(data, ensure_ascii=False) + ';\n'
       "const _n=s=>s.toLowerCase().normalize('NFC').replace(/[^\\p{L}\\p{N}]+/gu,'');\n"
-      "window.voAt=(w,k=1)=>{const q=_n(w);let c=0;for(const x of VO.words){if(_n(x.w)===q&&++c===k)return x.start}console.warn('voAt: nenalezeno',w);return null};\n"
+      "window.voAt=(w,k=1)=>{const q=_n(w);let c=0;for(const x of VO.words){if(_n(x.w)===q&&++c===k)return x.start}console.warn('voAt: not found',w);return null};\n"
       "window.voWordsAt=(t,n=4)=>{const i=VO.words.findIndex(x=>x.end>t);if(i<0)return[];const s=Math.max(0,i-Math.floor(n/2));return VO.words.slice(s,s+n).map(x=>({...x,active:t>=x.start&&t<x.end}))};\n")
 (out / 'vo.js').write_text(js, encoding='utf-8')
 
@@ -61,12 +61,12 @@ def ts(x):
 
 
 (out / 'vo.srt').write_text(''.join(f'{i+1}\n{ts(s["start"])} --> {ts(s["end"])}\n{s["text"]}\n\n' for i, s in enumerate(segs)), encoding='utf-8')
-print(f'-> {out}/vo.json, vo.js, vo.srt  ({len(words)} slov, {len(segs)} vět, {dur:.1f} s)')
+print(f'-> {out}/vo.json, vo.js, vo.srt  ({len(words)} words, {len(segs)} sentences, {dur:.1f} s)')
 
 if a.text:
     norm = lambda s: re.findall(r'\w+', s.lower())
     ref, hyp = norm(open(a.text, encoding='utf-8').read()), [x for w in words for x in norm(w['w'])]
     diff = [d for d in difflib.ndiff(ref, hyp) if d[0] in '+-']
-    print('Rozdíly text vs. slyšené (- v textu, + slyšeno):' if diff else 'Text a slyšené se shodují.')
+    print('Differences text vs. heard (- in text, + heard):' if diff else 'Text and speech match.')
     for d in diff[:60]:
         print('  ', d)

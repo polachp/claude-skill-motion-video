@@ -1,17 +1,17 @@
-"""Render videa z HTML timeline do MP4 (jedna MP4 na scénu, paralelně, pak spojení).
+"""Render a video from an HTML timeline to MP4 (one MP4 per scene, in parallel, then joined).
 
-Stránka musí vystavit:
-  window.seek(t)   nastaví stav animace pro čas t (s), deterministicky
-  window.T         {scena: [od, do], ...} v sekundách, v pořadí přehrávání
-  window.FORMAT    {w, h} návrhové rozlišení stránky (výchozí 1080x1920)
+The page must expose:
+  window.seek(t)   sets the animation state for time t (s), deterministically
+  window.T         {scene: [start, end], ...} in seconds, in playback order
+  window.FORMAT    {w, h} design resolution of the page (default 1080x1920)
 
-Použití:
-  python render.py video.html out/                      # vše v návrhovém rozlišení
-  python render.py video.html out/ --scale 2            # 1920x1080 -> 3840x2160 (4K), finální render
-  python render.py video.html out/ --scale 0.5          # rychlý náhled v polovičním rozlišení
-  python render.py video.html out/ --only s3 s6         # jen vybrané scény, pak znovu spojí vše
-  python render.py video.html out/ --workers 4          # počet paralelních prohlížečů (výchozí 4)
-Potřebuje: playwright (pip), Chrome/Chromium, ffmpeg.
+Usage:
+  python render.py video.html out/                      # everything at design resolution
+  python render.py video.html out/ --scale 2            # 1920x1080 -> 3840x2160 (4K), final render
+  python render.py video.html out/ --scale 0.5          # quick preview at half resolution
+  python render.py video.html out/ --only s3 s6         # only some scenes, then join everything again
+  python render.py video.html out/ --workers 4          # number of parallel browsers (default 4)
+Requires: playwright (pip), Chrome/Chromium, ffmpeg.
 """
 import sys, os, subprocess, pathlib, argparse
 from concurrent.futures import ProcessPoolExecutor
@@ -68,10 +68,10 @@ if __name__ == '__main__':
     jobs = [(str(html), str(out), s, se[0], se[1], F, a.scale, a.fps, a.crf) for s, se in T.items() if not a.only or s in a.only]
     with ProcessPoolExecutor(max_workers=a.workers) as ex:
         for s, ok in ex.map(render_scene, jobs):
-            print(s, 'ok' if ok else 'CHYBA', flush=True)
+            print(s, 'ok' if ok else 'ERROR', flush=True)
     missing = [s for s in T if not (out / f'{s}.mp4').exists()]
     if missing:
-        print('Nespojuji, chybí scény:', ' '.join(missing)); sys.exit(0)
+        print('Not joining, missing scenes:', ' '.join(missing)); sys.exit(0)
     (out / 'list.txt').write_text(''.join(f"file '{s}.mp4'\n" for s in T))
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', str(out / 'list.txt'),
                     '-c', 'copy', str(out / 'video_only.mp4')], check=True)

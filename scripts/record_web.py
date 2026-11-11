@@ -1,30 +1,30 @@
-"""Živé nahrávání webu (po vzoru Argo): Playwright projde stránku podle kroků, s kurzorem, zvýrazněním a zoomem.
+"""Live web recording (inspired by Argo): Playwright walks a page step by step, with cursor, highlight and zoom.
 
-Spouštět na počítači, který na web dosáhne (Claude Code u Petra), ne v cloudovém sandboxu.
+Run it on a machine that can reach the web (Claude Code on Petr's PC), not in the cloud sandbox.
 
-Použití:  python record_web.py kroky.json out_dir/ [--width 1280 --height 800] [--scale 2] [--headed]
-Výstup:   out_dir/web.mp4 (H.264, 30 fps), out_dir/marks.json (čas každého kroku v s)
+Usage:   python record_web.py steps.json out_dir/ [--width 1280 --height 800] [--scale 2] [--headed]
+Output:  out_dir/web.mp4 (H.264, 30 fps), out_dir/marks.json (time of each step in s)
 
-kroky.json:
+steps.json:
 {
-  "url": "https://www.meteoblue.com/cs/...",
+  "url": "https://www.meteoblue.com/...",
   "steps": [
     {"do": "wait", "s": 1.5},
-    {"do": "click", "sel": "input[type=search]", "note": "vyhledávání"},
+    {"do": "click", "sel": "input[type=search]", "note": "search"},
     {"do": "type", "text": "Raná", "delay": 120},
     {"do": "wait", "s": 1.2},
-    {"do": "spot", "sel": "text=Ústecký", "s": 1.5},          # rámeček + ztmavení okolí
+    {"do": "spot", "sel": "text=Ústecký", "s": 1.5},          # frame + dim the rest
     {"do": "click", "sel": "text=Ústecký"},
-    {"do": "zoom", "sel": "#chart", "k": 1.8, "s": 2.0},       # plynulý zoom na prvek
+    {"do": "zoom", "sel": "#chart", "k": 1.8, "s": 2.0},       # smooth zoom to an element
     {"do": "unzoom", "s": 0.8},
     {"do": "scroll", "y": 600, "s": 1.0},
     {"do": "hover", "sel": "text=MultiModel"},
-    {"do": "mark", "name": "konec"}
+    {"do": "mark", "name": "end"}
   ]
 }
-Kurzor se k cíli vždy plynule přesune a při kliknutí udělá vlnku. Barva zvýraznění --accent (výchozí #FFD24A).
-Ve video.html se web.mp4 vloží jako <video> a posouvá funkcí vseek() ze šablony (deterministicky pro render).
-Cookie lišty: krok {"do": "click", "sel": "text=Odmítnout"} (volit nejšetrnější možnost k soukromí).
+The cursor always glides to the target and shows a ripple on click. Highlight color --accent (default #FFD24A).
+In video.html, put web.mp4 in a <video> and move it with vseek() from the template (deterministic for render).
+Cookie banners: add a step {"do": "click", "sel": "text=Reject"} (choose the most privacy-friendly option).
 """
 import json, argparse, pathlib, subprocess, time, shutil, os
 from playwright.sync_api import sync_playwright
@@ -53,7 +53,7 @@ def ensure(pg):
 def box(pg, sel):
     el = pg.locator(sel).first; el.scroll_into_view_if_needed(); b = el.bounding_box()
     if not b:
-        raise SystemExit(f'Prvek nenalezen: {sel}')
+        raise SystemExit(f'Element not found: {sel}')
     return b
 
 
@@ -111,7 +111,7 @@ with sync_playwright() as p:
         elif k == 'mark':
             pass
         else:
-            raise SystemExit(f'Neznámý krok: {k}')
+            raise SystemExit(f'Unknown step: {k}')
     pg.wait_for_timeout(600); vid = pg.video.path(); ctx.close(); b.close()
 
 subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', vid, '-r', '30', '-c:v', 'libx264', '-crf', '18', '-preset', 'veryfast',

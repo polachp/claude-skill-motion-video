@@ -1,14 +1,14 @@
-"""Automatická kontrola videa před renderem.
+"""Automatic video check before render.
 
-Použití:  python check.py video.html [--step 0.5] [--dead 3] [--safe 180,60,420,60]
-Hlídá:
-  - text mimo bezpečnou zónu (okraje top,right,bottom,left v px návrhového rozlišení; výchozí podle formátu:
-    9:16 = 200,60,380,60 kvůli UI Reels/Shorts (orientační, upravit dle platformy), 4:5 = 80,60,140,60,
+Usage:  python check.py video.html [--step 0.5] [--dead 3] [--safe 200,60,380,60]
+Checks:
+  - text outside the safe zone (margins top,right,bottom,left in px of the design resolution; default by format:
+    9:16 = 200,60,380,60 for the Reels/Shorts UI (approximate, adjust per platform), 4:5 = 80,60,140,60,
     16:9 = 54,96,54,96, 1:1 = 54,54,54,54)
-  - text přetékající přes kontejner nebo mimo obraz
-  - nízký kontrast textu proti pozadí (WCAG poměr < 3 pro velký text, < 4.5 pro malý)
-  - hluchá místa: úseky delší než --dead s, kde se obraz skoro nemění
-Výstup: seznam nálezů s časem a scénou. Návratový kód 1, pokud něco našel.
+  - text that overflows its container or the frame
+  - low text contrast against the background (WCAG ratio < 3 for large text, < 4.5 for small text)
+  - dead air: parts longer than --dead seconds where the picture almost does not change
+Output: list of findings with time and scene. Exit code 1 if anything was found.
 """
 import sys, os, json, argparse, pathlib, io
 from playwright.sync_api import sync_playwright
@@ -27,9 +27,9 @@ while(n=walker.nextNode()){const t=n.textContent.trim();if(!t)continue;const el=
  const rg=document.createRange();rg.selectNodeContents(n);const r=rg.getBoundingClientRect();if(r.width<2||r.height<2)continue;
  const cs=getComputedStyle(el);const fs=parseFloat(cs.fontSize),fw=+cs.fontWeight||400;
  const issues=[];
- if(r.left<0||r.top<0||r.right>W||r.bottom>H)issues.push('mimo obraz');
- else if(r.top<safe[0]||r.right>W-safe[1]||r.bottom>H-safe[2]||r.left<safe[3])issues.push('mimo bezpečnou zónu');
- if(el.scrollWidth>el.clientWidth+2&&cs.overflow!=='visible')issues.push('přetéká');
+ if(r.left<0||r.top<0||r.right>W||r.bottom>H)issues.push('outside frame');
+ else if(r.top<safe[0]||r.right>W-safe[1]||r.bottom>H-safe[2]||r.left<safe[3])issues.push('outside safe zone');
+ if(el.scrollWidth>el.clientWidth+2&&cs.overflow!=='visible')issues.push('overflows');
  const col=(el instanceof SVGElement&&cs.fill&&cs.fill.startsWith('rgb'))?cs.fill:cs.color;
  res.push({t:t.slice(0,60),x:r.left,y:r.top,w:r.width,h:r.height,color:col,large:fs>=24||(fs>=18.6&&fw>=700),issues})}
 return res}"""
@@ -73,11 +73,11 @@ with sync_playwright() as p:
                 l1, l2 = lum(parse_rgb(it['color'])), lum(bg)
                 cr = (max(l1, l2) + 0.05) / (min(l1, l2) + 0.05)
                 if cr < (3 if it['large'] else 4.5):
-                    iss.append(f'nízký kontrast {cr:.1f}:1')
+                    iss.append(f'low contrast {cr:.1f}:1')
             for i in iss:
                 key = (it['t'], i.split(' ')[0], scene(t))
                 if key not in seen:
-                    seen.add(key); found.append(f"{t:6.1f} s  [{scene(t)}]  {i}: „{it['t']}“")
+                    seen.add(key); found.append(f"{t:6.1f} s  [{scene(t)}]  {i}: \"{it['t']}\"")
         small = img.resize((W // 8, H // 8))
         if prev is not None:
             diff = ImageStat.Stat(ImageChops.difference(small, prev)).mean
@@ -85,14 +85,14 @@ with sync_playwright() as p:
                 still += a.step
             else:
                 if still >= a.dead:
-                    found.append(f"{t - still:6.1f} s  [{scene(t - still)}]  hluché místo {still:.1f} s bez změny")
+                    found.append(f"{t - still:6.1f} s  [{scene(t - still)}]  dead air {still:.1f} s without change")
                 still = 0.0
         prev = small
         t = round(t + a.step, 3)
     if still >= a.dead:
-        found.append(f"{END - still:6.1f} s  [{scene(END - still)}]  hluché místo {still:.1f} s bez změny (konec)")
+        found.append(f"{END - still:6.1f} s  [{scene(END - still)}]  dead air {still:.1f} s without change (end)")
     b.close()
 
-print(f'Formát {W}x{H}, bezpečná zóna (top,right,bottom,left) = {safe}, krok {a.step} s')
-print('\n'.join(found) if found else 'Bez nálezů.')
+print(f'Format {W}x{H}, safe zone (top,right,bottom,left) = {safe}, step {a.step} s')
+print('\n'.join(found) if found else 'No findings.')
 sys.exit(1 if found else 0)

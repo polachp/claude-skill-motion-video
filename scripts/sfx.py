@@ -1,15 +1,15 @@
-"""Jemné zvukové efekty generované v kódu a rozmístěné podle časů ve videu.
+"""Subtle sound effects generated in code and placed at times in the video.
 
-Použití:
-  python sfx.py cues.json sfx.wav [--dur 74]        # vytvoří stopu efektů dlouhou jako video
-  python sfx.py --demo demo.wav                      # ukázka všech typů za sebou
+Usage:
+  python sfx.py cues.json sfx.wav [--dur 74]        # creates an effects track as long as the video
+  python sfx.py --demo demo.wav                      # demo of all types in a row
 
 cues.json: [{"t": 3.5, "type": "whoosh", "gain": -18}, {"t": 12.9, "type": "click"}, ...]
-Typy: whoosh (přechod scény), click (rámeček, výběr), pop (objevení karty), tick (popisek),
-      swell (zvýraznění oblasti), riser (náběh k důležitému momentu), thud (dopad verdiktu).
-gain v dBFS špičky (výchozí podle typu, cca -20 až -14). Efekty mají být výrazně tišší než hudba.
-Výstup: WAV 48 kHz stereo; přimíchá se přes mix_audio.py --sfx.
-Bez externích zvuků a modelů (jen numpy).
+Types: whoosh (scene transition), click (frame, selection), pop (card appears), tick (label),
+       swell (area highlight), riser (build-up to a key moment), thud (verdict lands).
+gain = peak dBFS (default per type, about -26 to -18). Effects should be much quieter than the music.
+Output: WAV 48 kHz stereo; mix it in with mix_audio.py --sfx.
+No external sounds or models (numpy only).
 """
 import sys, json, argparse, wave
 import numpy as np
@@ -26,7 +26,7 @@ def env(n, a, d, curve=3.0):
 
 
 def lowpass(x, f):
-    # jednopólový filtr, f v Hz (může být pole)
+    # one-pole low-pass, f in Hz (scalar or array)
     f = np.broadcast_to(f, x.shape)
     a = np.exp(-2 * np.pi * f / SR)
     y = np.zeros_like(x); s = 0.0
@@ -66,7 +66,7 @@ def make(kind):
         x = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t * 12) + lowpass(rng.standard_normal(n), 300) * np.exp(-t * 40) * .5
         pan = np.zeros(n)
     else:
-        raise SystemExit(f'Neznámý typ efektu: {kind}')
+        raise SystemExit(f'Unknown effect type: {kind}')
     x = x / (np.max(np.abs(x)) + 1e-9)
     L = x * np.sqrt((1 - pan) / 2) * np.sqrt(2); R = x * np.sqrt((1 + pan) / 2) * np.sqrt(2)
     return np.stack([L, R], 1)
@@ -94,4 +94,4 @@ if __name__ == '__main__':
     for c in cues:
         k = c['type']; s = cache.setdefault(k, make(k)); g = 10 ** (c.get('gain', DEFAULT_GAIN[k]) / 20)
         i = int(c['t'] * SR); j = min(len(out), i + len(s)); out[i:j] += s[:j - i] * g
-    write(a.out, out[:int(dur * SR)]); print('->', a.out, f'{len(cues)} efektů, {dur:.1f} s')
+    write(a.out, out[:int(dur * SR)]); print('->', a.out, f'{len(cues)} effects, {dur:.1f} s')

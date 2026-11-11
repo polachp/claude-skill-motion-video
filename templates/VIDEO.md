@@ -1,34 +1,35 @@
-# Video profil: <název projektu>
+# Video profile: <project name>
 
-Profil čte skill `motion-video`. Má přednost před jeho výchozími hodnotami.
+Read by the `motion-video` skill. Overrides its defaults.
 
-## Značka
-- Název a jeho zápis:
-- Logo (cesta, varianty, pravidla, animace na začátku/konci):
-- Barvy (HEX): pozadí, akcenty, význam barev:
-- Písmo a velikosti (nadpis, titulek, popisky):
+## Brand
+- Name and how to write it:
+- Logo (path, variants, rules, animation at start/end):
+- Colors (HEX): background, accents, meaning of colors:
+- Font and sizes (heading, caption, labels):
 
-## Publikum a tón
-- Pro koho:
-- Oslovení / osoba titulků (např. 1. os. mn. č.):
-- Ověřené formulace a termíny:
-- Čemu se vyhnout:
+## Audience and tone
+- Who it is for:
+- Video language:
+- Voice of the captions (e.g. 1st person plural):
+- Approved phrases and terms:
+- What to avoid:
 
-## Zvuk
-- Znělka (soubor, délka, kdy):
-- Hudba (složka, licence):
-- Zvukové efekty (ano/ne, styl):
+## Audio
+- Jingle (file, length, when):
+- Music (folder, license):
+- Sound effects (yes/no, style):
 
-## Formáty
-- Výchozí předvolby a délky:
-- Bezpečné zóny (pokud jiné než výchozí):
-- Popisky ilustračních dat (ano/ne podle formátu):
+## Formats
+- Default presets and lengths:
+- Safe zones (if different from defaults):
+- Labels for illustrative data (yes/no per format):
 
-## Publikace
-- Sítě:
-- Hashtagy (jen tato sada):
-- YouTube: kanál, související videa, kategorie:
+## Publishing
+- Networks:
+- Hashtags (only this set):
+- YouTube: channel, related videos, category:
 
-## Ukázky a zdroje
-- Ukázkové lokality / data:
-- Vzorové výstupy:
+## Examples and sources
+- Example locations / data:
+- Reference outputs:
