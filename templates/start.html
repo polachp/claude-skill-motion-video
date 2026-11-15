@@ -14,6 +14,10 @@ body{width:1080px;height:1920px;overflow:hidden;font-family:Outfit,sans-serif;co
 .title{left:40px;right:40px;text-align:center;font:700 96px/1.08 Outfit}
 .cap{left:60px;right:60px;text-align:center;font:600 62px/1.22 Outfit}
 em{font-style:normal;color:#FFD24A}
+/* kinetic words (layoutWords + kword): set --ink, --soft, --green, --orange on the scene or body */
+.kw{display:inline-block;--kc:var(--ink,#fff);color:var(--kc)}
+.kw.b{font-weight:800}.kw.g{--kc:var(--green,#7CDB8A)}.kw.o{--kc:var(--orange,#FFA83A)}.kw.y{--kc:#FFD24A}
+.kw.ol{display:inline-grid}.kw.ol>i{grid-area:1/1;font-style:normal}.kw.ol>.st{color:#000}
 </style></head><body>
 
 <div class="scene" id="s1">
@@ -48,8 +52,37 @@ function rise(el,t,a,dur=.5,dist=40){const p=eo(prog(t,a,a+dur));el.style.opacit
 window.__pending=[];
 function vseek(v,time){time=Math.max(0,Math.min(time,(v.duration||1e9)-0.04));if(Math.abs(v.currentTime-time)<1/120)return;
   window.__pending.push(new Promise(r=>v.addEventListener('seeked',r,{once:true})));v.currentTime=time}
-// word-by-word captions from the voiceover (vo.js from align_voice.py): wordCaption($('cap'),t)
-function wordCaption(el,t,n=4){if(!window.voWordsAt)return;el.innerHTML=voWordsAt(t,n).map(w=>w.active?'<em>'+w.w+'</em>':w.w).join(' ')}
+// ---------- text: words appear in their final place, nothing jumps ----------
+// layoutWords(el, text, {outline}) lays out the whole sentence once and returns the word elements.
+// Markup: **word** = key word (bold), [g]word green, [o]word orange, [y]word yellow (all bold).
+// outline: radius in px for captions over footage (a black copy under the text, round outline; 7 = medium).
+function ringShadow(r,n=24){return[...Array(n)].map((_,i)=>`${(r*Math.cos(2*Math.PI*i/n)).toFixed(1)}px ${(r*Math.sin(2*Math.PI*i/n)).toFixed(1)}px 0 #000`).join(',')}
+function layoutWords(el,text,{outline=0}={}){
+  el.innerHTML=text.split(' ').map(w=>{let c='';const m=w.match(/^\[(g|o|y)\]/);
+    if(m){c='b '+m[1];w=w.slice(3)}else if(w.startsWith('**')){c='b';w=w.replace(/\*\*/g,'')}
+    if(!outline)return `<span class="kw ${c}">${w}</span>`;
+    return `<span class="kw ol ${c}"><i class="st" style="text-shadow:${ringShadow(outline)},0 8px 22px rgba(0,0,0,.5)">${w}</i><i class="fi">${w}</i></span>`}).join(' ');
+  const ws=[...el.querySelectorAll('.kw')];ws.forEach(w=>{w.style.opacity=0});return ws;
+}
+// kword: one word arrives at time a: from below, smaller, blurred, soft color; then turns to its final color.
+function kword(el,t,a,{dy=34,blur=8,dur=.32}={}){
+  const p=prog(t,a,a+dur),q=prog(t,a+.12,a+.4),e=eo(p);
+  el.style.opacity=cl(p*3);el.style.transform=`translateY(${((1-e)*dy).toFixed(1)}px) scale(${(.86+.14*e).toFixed(3)})`;
+  el.style.filter=p<1?`blur(${((1-e)*blur).toFixed(1)}px)`:'none';
+  el.style.color=q<1?`color-mix(in srgb, var(--soft,#8FB0D6) ${Math.round((1-eo(q))*100)}%, var(--kc))`:'';
+}
+function kwords(ws,t,a,step=.2,opt){ws.forEach((w,i)=>kword(w,t,a+i*step,opt))}
+// pop: simpler entrance for captions over footage (scale pop, no blur, no color change)
+function popWord(el,t,a){const p=prog(t,a,a+.18);const c1=1.7,c3=2.7,x=p-1;el.style.opacity=cl(p*2.2);el.style.transform=`scale(${(.82+.18*(1+c3*x*x*x+c1*x*x)).toFixed(3)})`}
+// blurOut: the whole scene blurs and fades before the next one
+function blurOut(el,t,a,d=.35){const p=prog(t,a,a+d);el.style.opacity=1-p;el.style.filter=p>0?`blur(${(p*14).toFixed(1)}px)`:'none'}
+// voCaption: captions from the voiceover (vo.js from align_voice.py). The text is cut into chunks of n words;
+// each chunk is laid out once and every word appears at its spoken time. Usage: voCaption($('cap'),t,{n:7,outline:7})
+function voCaption(el,t,{n=7,outline=7,mark={}}={}){
+  if(!window.VO)return;const W=VO.words;let i=W.findIndex(x=>x.end>t);if(i<0)i=W.length-1;const c=Math.floor(i/n);
+  if(el._chunk!==c){el._chunk=c;el._w=W.slice(c*n,c*n+n);el._ws=layoutWords(el,el._w.map(x=>mark[x.w]?mark[x.w]+x.w:x.w).join(' '),{outline})}
+  el._ws.forEach((w,j)=>popWord(w,t,el._w[j].start));
+}
 function sceneOp(id,t){const [a,b]=T[id];if(t<a||t>b)return 0;return cl(Math.min((t-a)/.35,(b-t)/.35))}
 
 // ---------- static elements (once) ----------

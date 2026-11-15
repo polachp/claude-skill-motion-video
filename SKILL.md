@@ -19,6 +19,8 @@ config, usually Czech. Storyboard and player UI can be localized with `labels` i
   or its text copy in the claude.ai project (`claude/video-profil.md`).
 - The profile overrides the defaults of this skill (colors, font, logo, jingle, music, tone, audience,
   phrasing, hashtags, safe zones, example locations).
+- The profile may point to a **style file** (e.g. `brand/reel-style.md`: scene types, typography, motion, what not to use)
+  with a reference HTML. Read it too and follow it; for its format it wins over the profile.
 - No profile: ask about the brand and audience and create one from `templates/VIDEO.md`.
 
 ## 1. Config (single source of truth)
@@ -91,6 +93,16 @@ The output is always a pair **script + storyboard**, kept in sync after every ch
 - Transitions: crossfade by default; where possible, connect scenes (a chart morphs into the next, a card expands into a scene).
 - Real brands and logos only genuine and undistorted; never put a third-party logo on illustrative data.
 
+### Text on screen
+- **Words appear in their final place.** Lay out the whole sentence (or caption chunk) first; words not shown yet are
+  invisible. Never rebuild the line word by word and never use a sliding window of words: text must not jump.
+- Short screens: max 2 lines over footage, max 3 lines on a plain background. Split long sentences into more screens;
+  do not make the text smaller.
+- Emphasis mainly by weight (regular vs bold). Color only where it carries meaning (e.g. trust / uncertainty colors from the profile).
+- Text over footage needs an outline or a dark strip. Outline = black copy under the text with a round ring of
+  text shadows (`ringShadow()`), not a thick `-webkit-text-stroke` (sharp spikes, filled letter holes).
+  Dark strips behind lines: draw all strips in one layer and set the opacity on the layer, so overlaps do not get darker.
+
 ## 4. Checks
 
 - `scripts/check.py project/video.html [--step 0.5] [--safe t,r,b,l]`: text outside the safe zone or frame,
@@ -114,7 +126,8 @@ The output is always a pair **script + storyboard**, kept in sync after every ch
   Optional in Claude Code: earshot (MCP; 252 sounds as code, listening and sync checks), if Petr installs it (~1.1 GB of models).
 - **Voiceover with word sync:** `scripts/align_voice.py voiceover.wav project/ [--text script.txt]` (Whisper, Czech)
   creates `vo.json`, `vo.js` and `vo.srt`. In `video.html` load `<script src="vo.js">` and time graphics to words:
-  `voAt('word')` returns the time of a word; word-by-word captions with `wordCaption(el, t)` (good for 9:16, 4:5, 1:1).
+  `voAt('word')` returns the time of a word; word-by-word captions with `voCaption(el, t, {n, outline})`
+  (chunks of n words, each word appears at its spoken time in its final place; good for 9:16, 4:5, 1:1).
   The recording is the master clock: take length and scene times from it, never stretch anything.
   Whisper timing is accurate to about a tenth of a second; check by listening. `--text` compares the real text with what was heard.
 - Stock music may trigger Content ID; file a Dispute with the license, not "Escalate to appeal".
@@ -125,6 +138,9 @@ The output is always a pair **script + storyboard**, kept in sync after every ch
    scenes as `<div class="scene">`, timeline `T={s1:[0,3.5],…}`, deterministic `seek(t)` (no CSS animations,
    timers or `Math.random()`; seeded random), at the end `window.seek=seek; window.T=T;`.
    Local font via `npm i @fontsource/<font>` (the player switches to Google Fonts). Put logos inline as SVG.
+   Text helpers in the template: `layoutWords(el, text, {outline})` (markup `**word**` bold, `[g]` `[o]` `[y]` colored),
+   `kword` / `kwords` (kinetic entrance: from below, blurred, soft color to final color), `popWord` (simple pop),
+   `blurOut` (scene exit), `voCaption` (captions from the voiceover), `ringShadow` (round outline).
 2. **Live web recordings** (instead of static screenshots, when the walk through a site matters):
    `scripts/record_web.py steps.json out/ [--width 1280 --height 800 --scale 2]`: Playwright walks the site by steps
    (`click`, `type`, `hover`, `spot` = frame with dimmed surroundings, `zoom`/`unzoom`, `scroll`, `wait`, `mark`)

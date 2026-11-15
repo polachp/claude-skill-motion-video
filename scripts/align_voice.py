@@ -8,7 +8,8 @@ Output in project/:
   vo.srt    subtitles per sentence (YouTube, accessibility)
 In video.html:
   voAt('word')             time of the first occurrence of a word (s); voAt('word', 2) = second occurrence
-  voWordsAt(t, 4)          words around time t, for word-by-word captions
+  voWordsAt(t, 4)          words around time t
+  VO.words                 all words; voCaption() in templates/start.html builds word-by-word captions from them
 The recording is the master clock: take video length and scene times from vo.json, never stretch anything.
 --text: optional real voiceover text; only used as a check (prints words Whisper heard differently).
 
